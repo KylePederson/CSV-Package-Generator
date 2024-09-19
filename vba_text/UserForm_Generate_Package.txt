@@ -1,0 +1,7 @@
+
+Private Sub btn_generate_package_Click()
+    
+    Me.Hide
+    Call Generate.create_package
+
+End Sub

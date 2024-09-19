@@ -1,0 +1,184 @@
+Option Explicit
+Option Base 1
+
+Public Const email_list As String = "emails"
+Public Const file_list As String = "package_list"
+
+
+Sub create_package()
+
+    Dim unique_name     As String
+    Dim root_path       As String
+    Dim source_path     As String
+    Dim package_list    As Variant
+    Dim zip_path        As String
+    Dim data            As Variant
+    Dim id              As String
+    Dim i               As Integer
+    Dim has_headers     As Boolean
+    Dim open_folder     As Boolean
+    Dim send_email      As Boolean
+    
+    On Error GoTo HandleError
+    
+    has_headers = generate_package.check_headers
+    open_folder = generate_package.check_open_folder
+    send_email = generate_package.check_email
+    
+    unique_name = "csvp_" & Format(Now(), "YYYYMMDD_hhmmss")
+    root_path = Environ("AppData") & "\csv_packages\" & unique_name & "\"
+    source_path = root_path & unique_name & "\"
+    package_list = create_package_list()
+    zip_path = root_path & unique_name & ".zip"
+    
+    Call create_path(source_path)
+    
+    For i = LBound(package_list) To UBound(package_list)
+        id = package_list(i)
+        data = Tables.get_data_from_table(has_headers, id)
+        Call create_csv(source_path, id, data)
+    Next i
+    
+    Call create_zip(source_path, zip_path)
+    
+    If send_email Then Call Email.create_email(zip_path, unique_name, package_list)
+    If open_folder Then Call open_path(root_path)
+    
+HandleError:
+    If Err Then MsgBox "An error has occured while creating package."
+    
+End Sub
+
+
+' create the directory where all files will be stored
+Function create_path(ByVal path As String)
+
+    Dim check_path      As String
+    Dim element         As Variant
+    
+    check_path = ""
+    For Each element In Split(path, "\")
+        check_path = check_path & element & "\"
+        If Len(dir(check_path, vbDirectory)) = 0 Then MkDir check_path
+    Next
+    
+End Function
+
+
+' save a sheet as a csv file
+Function create_csv(ByVal path, filename As String, data As Variant)
+
+    Dim ws      As Worksheet
+    Dim rng     As Range
+    
+    On Error GoTo HandleError
+    Call toggle_display(False)
+    
+    Application.Workbooks.Add
+
+    Set ws = Application.ActiveSheet
+    Set rng = ws.Range(Cells(1, 1), Cells(UBound(data, 1), UBound(data, 2)))
+
+    With rng
+        .NumberFormat = "@"
+        .Value = data
+    End With
+    
+    ws.SaveAs path & filename, xlCSV
+    ActiveWorkbook.Close
+    
+HandleError:
+    If Err Then MsgBox "An error has occured while saving a CSV"
+    
+    Set rng = Nothing
+    Set ws = Nothing
+    
+    Call toggle_display(True)
+
+End Function
+
+
+Function create_zip(ByVal source_path As String, zip_path As String)
+
+    Open zip_path For Output As #1
+    Print #1, Chr$(80) & Chr$(75) & Chr$(5) & Chr$(6) & String(18, 0)
+    Close #1
+
+    Dim oShell      As Shell32.Shell
+    Dim oZip        As Object
+    Dim oSource     As Object
+    
+    Set oShell = New Shell32.Shell
+    Set oZip = oShell.Namespace(zip_path)
+    Set oSource = oShell.Namespace(source_path)
+
+    oZip.copyhere oSource.items
+    
+    On Error Resume Next
+    Do Until oZip.items.count = oSource.items.count
+        Application.Wait (Now + TimeValue("0:00:01"))
+    Loop
+    
+    
+End Function
+
+
+Function create_package_list() As Variant
+
+    Dim t               As Variant
+    Dim package_list    As Variant
+    Dim id              As String
+    Dim count           As Integer
+    Dim i               As Integer
+    Dim ws              As Worksheet
+    
+    On Error GoTo HandleError
+    
+    t = Tables.get_table(file_list)
+    count = 1
+    ReDim package_list(count)
+    
+    For i = LBound(t, 1) To UBound(t, 1)
+        id = t(i, 1)
+        
+        On Error Resume Next
+        Set ws = ThisWorkbook.Worksheets(id)
+        On Error GoTo 0
+        
+        If ws Is Nothing Then GoTo Continue
+        If Not t(i, 2) Then GoTo Continue
+        
+        ReDim Preserve package_list(count)
+        package_list(count) = id
+        count = count + 1
+Continue:
+        Set ws = Nothing
+        id = ""
+    Next i
+    
+HandleError:
+    If Err Then MsgBox "An error has occurd:" & vbCrLf & Err
+    create_package_list = package_list
+
+End Function
+
+
+Function toggle_display(ByVal t As Boolean)
+
+    With Application
+        .ScreenUpdating = t
+        .EnableEvents = t
+    End With
+    
+End Function
+
+
+Function open_path(ByVal path As String)
+
+    Dim oShell      As Shell32.Shell
+    Set oShell = New Shell32.Shell
+    Call oShell.Explore(path)
+    Set oShell = Nothing
+    
+End Function
+

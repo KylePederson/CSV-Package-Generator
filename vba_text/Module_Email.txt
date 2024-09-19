@@ -1,0 +1,82 @@
+Option Explicit
+
+
+Function create_email_string(ByVal target As String) As String
+
+    Dim emails      As Variant
+    Dim tmp         As String
+    Dim i           As Integer
+    
+    emails = Tables.get_table_body(Generate.email_list)
+    
+    For i = LBound(emails, 1) To UBound(emails, 1)
+        If Not emails(i, 3) Then GoTo NextEmail
+        If Not emails(i, 1) = target Then GoTo NextEmail
+        tmp = tmp & emails(i, 2) & "; "
+NextEmail:
+    Next i
+
+    create_email_string = tmp
+
+End Function
+
+
+Function create_email(ByVal _
+    path As String, _
+    unique_name As String, _
+    package_list As Variant)
+    
+    On Error GoTo HandleError
+    
+    Dim OutApp      As Object
+    Dim OutMail     As Object
+    
+    Set OutApp = CreateObject("Outlook.Application")
+    Set OutMail = OutApp.createItem(0)
+
+    With OutMail
+        .To = create_email_string("to")
+        .cc = create_email_string("cc")
+        .bcc = create_email_string("bcc")
+        .subject = "CSV Package Generated: " & unique_name
+        .htmlbody = create_body(package_list)
+        .display
+    End With
+    
+    If path <> "" Then OutMail.attachments.Add (path)
+
+HandleError:
+    If Err Then MsgBox "An error has occured while creating e-mail."
+    
+    Set OutMail = Nothing
+    Set OutApp = Nothing
+
+End Function
+
+
+Function create_body(ByRef package_list As Variant) As String
+
+    Dim h       As String
+    Dim i       As Integer
+    Dim j       As Integer
+    Dim str     As Variant
+    
+    h = h & "<style>"
+    h = h & "table{border-collapse:collapse; border:1px solid #ddd; width:50%;}"
+    h = h & "tr{padding:6px;}"
+    h = h & "td{border:1px solid #ddd;}"
+    h = h & "p{color:dark-gray;}"
+    h = h & "</style>"
+    h = h & "<p>The attached zip file contains the contents listed below.</p></br></hr>"
+    h = h & "<table>"
+    
+    For Each str In package_list
+        h = h & "<tr><td>" & str & "</td></tr>"
+    Next str
+    
+    h = h & "</table>"
+    
+    create_body = h
+    
+End Function
+

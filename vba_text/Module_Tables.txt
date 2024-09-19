@@ -1,0 +1,22 @@
+Option Explicit
+
+Function get_data_from_table(ByVal headers As Boolean, id As String) As Variant
+
+ If headers Then
+    get_data_from_table = get_table(id)
+    Exit Function
+ End If
+ 
+    get_data_from_table = get_table_body(id)
+
+End Function
+
+' get the table headers and table body
+Function get_table(ByVal id As String) As Variant
+    get_table = ThisWorkbook.Worksheets(id).ListObjects("_" & id).Range.Value
+End Function
+
+' get only the table body
+Function get_table_body(ByVal id As String) As Variant
+    get_table_body = ThisWorkbook.Worksheets(id).ListObjects("_" & id).DataBodyRange.Value
+End Function

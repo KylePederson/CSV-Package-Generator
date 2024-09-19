@@ -1,0 +1,9 @@
+
+Private Sub btn_generate_Click()
+    generate_package.Show vbModal
+    
+End Sub
+
+Private Sub btn_open_dir_Click()
+    Call Main.open_root_dir
+End Sub
